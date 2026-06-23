@@ -2,6 +2,7 @@ package com.swap.smsservice.service;
 
 import com.swap.smsservice.dto.SmsDto;
 import com.swap.smsservice.entity.Sms;
+import com.swap.smsservice.kafka.SmsProducer;
 import com.swap.smsservice.repository.SmsRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,6 +17,7 @@ import java.util.List;
 public class SmsServiceImpl implements SmsService{
 
     private SmsRepository repository;
+    private final SmsProducer smsProducer;
 
     @Override
     public SmsDto createSms(SmsDto smsDto) {
@@ -29,6 +31,8 @@ public class SmsServiceImpl implements SmsService{
         sms.setMessage(smsDto.getMessage());
         sms.setReceivedAt(LocalDateTime.now());
         Sms saved = repository.save(sms);
+
+        smsProducer.publishSms(saved.getMessage());
 
         return toDto(saved);
     }
