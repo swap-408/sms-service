@@ -1,6 +1,7 @@
 package com.swap.smsservice.service;
 
 import com.swap.smsservice.dto.SmsDto;
+import com.swap.smsservice.dto.SmsEventDto;
 import com.swap.smsservice.entity.Sms;
 import com.swap.smsservice.kafka.SmsProducer;
 import com.swap.smsservice.repository.SmsRepository;
@@ -18,6 +19,7 @@ public class SmsServiceImpl implements SmsService{
 
     private SmsRepository repository;
     private final SmsProducer smsProducer;
+    private final SmsDedupeService smsDedupeService;
 
     @Override
     public SmsDto createSms(SmsDto smsDto) {
@@ -25,14 +27,20 @@ public class SmsServiceImpl implements SmsService{
                 .getAuthentication()
                 .getName();
 
-        Sms sms = new Sms();
+        if (smsDedupeService.isDuplicate(smsDto.getMessage())) {
+            return smsDto;
+        }
 
+        Sms sms = new Sms();
         sms.setUserEmail(email);
         sms.setMessage(smsDto.getMessage());
         sms.setReceivedAt(LocalDateTime.now());
+
         Sms saved = repository.save(sms);
 
-        smsProducer.publishSms(saved.getMessage());
+        smsProducer.publishSms(
+                new SmsEventDto(saved.getUserEmail(), saved.getMessage())
+        );
 
         return toDto(saved);
     }
